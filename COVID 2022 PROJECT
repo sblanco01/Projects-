@@ -1,0 +1,144 @@
+https://console.cloud.google.com/bigquery?sq=38040079417:d900e757c7cd4b3a95c127ebfa11ad21
+
+## I imported my table Covid Death and Covid Vaccinations into my data set coronavirus 2022 then i used select and order by to see them in order from continent and location
+
+SELECT *
+FROM `coronavirus-2022.CovidDeaths.CovidDeaths`
+ORDER BY 3,4 
+
+SELECT *
+FROM `coronavirus-2022.CovidDeaths.CovidVaccinations`
+ORDER BY 3,4 
+
+-- Now i am selecing the data i will be using , ordering by location and date. 
+
+SELECT Location, date, total_cases, new_cases, total_deaths, population 
+FROM `coronavirus-2022.CovidDeaths.CovidDeaths`
+ORDER BY 1,2 
+
+-- Looking at the Total Cases vs Total Deaths (chances of dying )
+
+SELECT Location, date, total_cases, total_deaths, (total_deaths/total_cases)*100 AS DeathPercentage
+FROM `coronavirus-2022.CovidDeaths.CovidDeaths`
+ORDER BY 1,2 
+
+-- Looking at the Total Cases vs Total Deaths (chances of dying ) ONLY IN USA
+-- Also shows the likelihood of dying if you contract covid in the usa
+
+SELECT Location, date, total_cases, total_deaths, (total_deaths/total_cases)*100 AS DeathPercentage
+FROM `coronavirus-2022.CovidDeaths.CovidDeaths`
+WHERE location like '%United States%'
+ORDER BY 1,2 
+
+--Looking at the Total Cases vs Population 
+-- Shows the percentage of population got covid 
+
+SELECT Location, date, population, total_cases, (total_cases/population)*100 AS DeathPercentage
+FROM `coronavirus-2022.CovidDeaths.CovidDeaths`
+WHERE location like '%United States%'
+ORDER BY 1,2 
+
+-- I am curious of which countries have the highest infection rates
+
+SELECT Location, population, MAX(total_cases) AS HighestInfectionCount, (MAX(total_cases)/population)*100 AS PercentPopulationInfected
+FROM `coronavirus-2022.CovidDeaths.CovidDeaths`
+GROUP BY Location, Population 
+ORDER BY PercentPopulationInfected DESC 
+
+-- Show me the Countries with Highest Death per Population 
+
+SELECT Location, population, MAX(total_deaths) AS TotalMaxDeathCount, (MAX(total_deaths)/population)*100 AS PercentPopulationDead
+FROM `coronavirus-2022.CovidDeaths.CovidDeaths`
+WHERE continent is not null
+GROUP BY Location, Population 
+ORDER BY TotalMaxDeathCount DESC 
+
+-- Showing Continent vs Total Death Count 
+-- Showing continnents with the highest death count per population 
+
+SELECT continent, MAX(total_deaths) AS TotalDeathCount
+FROM `coronavirus-2022.CovidDeaths.CovidDeaths`
+WHERE continent is not null
+GROUP BY continent 
+ORDER BY TotalDeathCount DESC 
+
+-- GLOBAL NUMBERS
+
+SELECT SUM(new_cases) AS TotalCases, SUM(new_deaths) AS TotalDeaths, SUM(new_deaths)/SUM(new_cases)*100 AS DeathPercentage
+FROM `coronavirus-2022.CovidDeaths.CovidDeaths`
+--WHERE location like '%United States%'
+WHERE continent is not null
+--GROUP BY date 
+ORDER BY 1,2 
+
+-- ok now we are done experimenting with table covid deaths , and now lets explore the other table covid vacccinations 
+
+SELECT *
+FROM `coronavirus-2022.CovidDeaths.CovidDeaths` AS dea
+JOIN `coronavirus-2022.CovidDeaths.CovidVaccinations` AS vac
+    On dea.location = vac.location
+    and dea.date = vac.date 
+
+SELECT dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations
+FROM `coronavirus-2022.CovidDeaths.CovidDeaths` AS dea
+JOIN `coronavirus-2022.CovidDeaths.CovidVaccinations` AS vac
+    On dea.location = vac.location
+    and dea.date = vac.date 
+WHERE dea.continent is not null
+ORDER BY 2,3
+
+-- Looking at total population vs vaccinations
+
+SELECT dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations,
+SUM(vac.new_vaccinations) OVER (PARTITION BY dea.Location Order by dea.location, dea.Date) AS RollingPeopleVaccinated
+FROM `coronavirus-2022.CovidDeaths.CovidDeaths` AS dea
+JOIN `coronavirus-2022.CovidDeaths.CovidVaccinations` AS vac
+    On dea.location = vac.location
+    and dea.date = vac.date 
+WHERE dea.continent is not null
+ORDER BY 2,3
+
+
+SELECT dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations,
+SUM(vac.new_vaccinations) OVER (PARTITION BY dea.Location Order by dea.location, dea.Date) AS RollingPeopleVaccinated
+FROM `coronavirus-2022.CovidDeaths.CovidDeaths` AS dea
+JOIN `coronavirus-2022.CovidDeaths.CovidVaccinations` AS vac
+    On dea.location = vac.location
+    and dea.date = vac.date 
+WHERE dea.continent is not null
+ORDER BY 2,3
+
+--USE CTE 
+
+WITH  PopvsVac 
+AS
+ (
+SELECT dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations,
+SUM(vac.new_vaccinations) OVER (PARTITION BY dea.Location Order by dea.location, dea.Date) AS RollingPeopleVaccinated
+FROM `coronavirus-2022.CovidDeaths.CovidDeaths` AS dea
+JOIN `coronavirus-2022.CovidDeaths.CovidVaccinations` AS vac
+    On dea.location = vac.location
+    and dea.date = vac.date 
+WHERE dea.continent is not null
+--ORDER BY 2,3
+  )
+
+SELECT *, (RollingPeopleVaccinated/Population)
+FROM PopvsVac
+
+
+-- Creating View to store data for later visualizations
+
+Create View `coronavirus-2022.CovidDeaths.PercentPopulationVaccinated` AS
+Select dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations
+, SUM(vac.new_vaccinations) OVER (Partition by dea.Location Order by dea.location, dea.Date) as RollingPeopleVaccinated
+--, (RollingPeopleVaccinated/population)*100
+From `coronavirus-2022.CovidDeaths.CovidDeaths` dea
+Join `coronavirus-2022.CovidDeaths.CovidVaccinations` vac
+	On dea.location = vac.location
+	and dea.date = vac.date
+where dea.continent is not null 
+
+SELECT *
+FROM coronavirus-2022.CovidDeaths.PercentPopulationVaccinated
+
